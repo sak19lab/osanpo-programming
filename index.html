@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:;">
+<title>おさんぽプログラミング</title>
+<style>
+:root{
+  --bg:#fff8ec; --ink:#4a3b2a; --card:#ffffff; --ground:#fbe7c6; --grass:#bfe3a5; --line:#ead3ab;
+  --R:#ff8a3d; --L:#3d8bff; --U:#2bb673; --D:#a05cf0; --rep:#f2b200; --bad:#ff4d4d;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+  font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;overflow-x:hidden}
+button{font:inherit;color:inherit;border:none;background:none;cursor:pointer;touch-action:manipulation;padding:0}
+.screen{display:none;min-height:100%;padding:12px 16px 20px;flex-direction:column;align-items:center;gap:14px}
+.screen.on{display:flex}
+
+/* ---------- home ---------- */
+h1{margin:8px 0 0;font-size:clamp(26px,5vw,40px);letter-spacing:.05em;text-align:center}
+h1 small{display:block;font-size:.45em;opacity:.6;letter-spacing:.1em}
+.charas{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.charas button{width:68px;height:68px;font-size:40px;border-radius:20px;background:var(--card);
+  box-shadow:0 4px 0 var(--line)}
+.charas button.sel{outline:5px solid var(--R);transform:translateY(-3px)}
+.worlds{display:grid;gap:14px;width:min(720px,100%)}
+.world{background:var(--card);border-radius:24px;padding:14px 16px;box-shadow:0 5px 0 var(--line);
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.world .wname{font-size:22px;font-weight:700;min-width:180px;display:flex;align-items:center;gap:8px}
+.world .wname .ico{font-size:32px}
+.world .stages{display:flex;gap:10px;margin-left:auto}
+.world .stages button{width:64px;height:64px;border-radius:50%;font-size:26px;font-weight:700;
+  background:var(--ground);box-shadow:0 4px 0 var(--line);position:relative}
+.world .stages button.done{background:#ffe27a}
+.world .stages button.done::after{content:"⭐";position:absolute;right:-6px;top:-8px;font-size:22px}
+
+/* ---------- game ---------- */
+.top{width:100%;max-width:960px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.round{width:58px;height:58px;border-radius:50%;background:var(--card);font-size:28px;box-shadow:0 4px 0 var(--line)}
+.label{font-size:28px;font-weight:700;background:var(--card);padding:6px 22px;border-radius:30px;box-shadow:0 4px 0 var(--line)}
+.board{position:relative;border-radius:18px;overflow:hidden;box-shadow:0 6px 0 var(--line);background:var(--grass)}
+.cell{position:absolute;width:var(--cell);height:var(--cell);display:flex;align-items:center;justify-content:center;
+  font-size:calc(var(--cell)*.58)}
+.cell.path{background:var(--ground);border:2px solid #f5dcb2}
+.cell.wall{background:var(--grass)}
+.cell.start{background:#ffeccc}
+.topr{display:flex;gap:10px}
+#hintBtn{background:#fff6c2}
+.chara.ghost{opacity:.5;transition:transform .8s ease-in-out;z-index:3}
+.foot{position:absolute;width:var(--cell);height:var(--cell);display:flex;align-items:center;justify-content:center;
+  z-index:1;pointer-events:none;transition:opacity .8s}
+.foot svg{width:42%;height:42%;filter:drop-shadow(0 2px 0 rgba(0,0,0,.15))}
+.foot.out{opacity:0}
+body.running #hintBtn{pointer-events:none;opacity:.55}
+.cell.got{animation:pop .4s forwards}
+@keyframes pop{50%{transform:scale(1.5)}100%{transform:scale(0);opacity:0}}
+.chara{position:absolute;left:0;top:0;width:var(--cell);height:var(--cell);display:flex;align-items:center;justify-content:center;
+  font-size:calc(var(--cell)*.7);transition:transform .38s ease-in-out;z-index:2;pointer-events:none}
+.chara span{display:inline-block;transition:transform .2s}
+.chara.shake span{animation:shake .5s}
+@keyframes shake{20%,60%{translate:-8px 0}40%,80%{translate:8px 0}}
+.chara.hop span{animation:hop .5s 3}
+@keyframes hop{50%{translate:0 -30%}}
+.bubble{position:absolute;top:-6%;right:-10%;font-size:calc(var(--cell)*.32);background:#fff;border-radius:14px;
+  padding:2px 8px;box-shadow:0 2px 6px rgba(0,0,0,.15);white-space:nowrap}
+
+.prog{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:960px;padding:10px 12px;
+  background:#fff3dc;border-radius:22px;min-height:92px;align-items:center}
+.prog.full{animation:shake .4s}
+.slot{width:70px;height:70px;border-radius:16px;border:3px dashed #e3c58f;display:flex;align-items:center;justify-content:center;position:relative}
+.slot .num{position:absolute;bottom:-2px;left:4px;font-size:12px;opacity:.4}
+.card{width:70px;height:70px;border-radius:16px;color:#fff;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 0 rgba(0,0,0,.18);position:relative;transition:transform .15s}
+.card svg{width:62%;height:62%}
+.card .rep{position:absolute;right:-8px;top:-10px;background:var(--rep);color:#fff;font-weight:800;font-size:18px;
+  border-radius:14px;padding:1px 7px;box-shadow:0 2px 0 rgba(0,0,0,.2)}
+.card.now{transform:scale(1.18);outline:5px solid #ffd400;z-index:1}
+.card.sel{outline:5px solid #ffd400;transform:translateY(-8px);animation:bob 1s ease-in-out infinite}
+.card.bad{outline-color:var(--bad)}
+@keyframes bob{50%{translate:0 -5px}}
+.palette{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-items:center}
+.palette .card{width:86px;height:86px;border-radius:22px;box-shadow:0 6px 0 rgba(0,0,0,.2)}
+.palette .card:active{transform:translateY(4px);box-shadow:0 2px 0 rgba(0,0,0,.2)}
+.palette .repbtn{width:86px;height:86px;border-radius:22px;background:var(--rep);color:#fff;font-size:30px;font-weight:800;
+  box-shadow:0 6px 0 rgba(0,0,0,.2)}
+.palette .sep{width:6px}
+.controls{display:flex;gap:14px;align-items:center}
+.go{height:80px;padding:0 38px;border-radius:40px;background:#ff5a7a;color:#fff;font-size:34px;font-weight:800;
+  box-shadow:0 6px 0 #c63a57;display:flex;align-items:center;gap:8px}
+.go:active{transform:translateY(4px);box-shadow:0 2px 0 #c63a57}
+body.running .palette,body.running .controls .round,body.running .prog{pointer-events:none;opacity:.55}
+body.running .go{pointer-events:none;opacity:.6}
+
+/* ---------- clear overlay ---------- */
+.overlay{position:fixed;inset:0;background:rgba(255,248,236,.85);display:none;align-items:center;justify-content:center;z-index:10}
+.overlay.on{display:flex}
+.panel{background:#fff;border-radius:30px;padding:26px 34px;text-align:center;box-shadow:0 8px 0 var(--line);max-width:90vw}
+.panel .big{font-size:84px;animation:hop .6s 2}
+.panel .msg{font-size:36px;font-weight:800;margin:6px 0 18px}
+.panel .row{display:flex;gap:14px;justify-content:center}
+.confetti{position:fixed;top:-20px;width:12px;height:18px;border-radius:3px;z-index:11;pointer-events:none;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
+</style>
+</head>
+<body>
+
+<!-- ホーム -->
+<section class="screen on" id="home">
+  <h1>おさんぽプログラミング<small>カードを ならべて ゴールまで いこう</small></h1>
+  <div class="charas" id="charas"></div>
+  <div class="worlds" id="worlds"></div>
+</section>
+
+<!-- ゲーム -->
+<section class="screen" id="game">
+  <div class="top">
+    <button class="round" id="homeBtn" aria-label="もどる">🏠</button>
+    <div class="label" id="label">1-1</div>
+    <div class="topr">
+      <button class="round" id="hintBtn" aria-label="ヒント">💡</button>
+      <button class="round" id="soundBtn" aria-label="おと">🔊</button>
+    </div>
+  </div>
+  <div class="board" id="board"></div>
+  <div class="prog" id="prog"></div>
+  <div class="palette" id="palette"></div>
+  <div class="controls">
+    <button class="round" id="undoBtn" aria-label="1まい けす"><svg viewBox="0 0 40 40" width="38" height="38" aria-hidden="true">
+      <g transform="rotate(-35 20 20)">
+        <rect x="5" y="12" width="30" height="16" rx="3" fill="#ff8fab" stroke="#4a3b2a" stroke-width="2"/>
+        <path d="M22 12h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H22z" fill="#5aa9ff" stroke="#4a3b2a" stroke-width="2"/>
+      </g>
+      <path d="M6 36h28" stroke="#4a3b2a" stroke-width="2" stroke-linecap="round" opacity=".35"/>
+    </svg></button>
+    <button class="go" id="goBtn">▶ スタート</button>
+    <button class="round" id="clearBtn" aria-label="ぜんぶ けす">🗑️</button>
+  </div>
+</section>
+
+<div class="overlay" id="overlay">
+  <div class="panel">
+    <div class="big" id="clearChara">🤖</div>
+    <div class="msg">やったね！</div>
+    <div class="row">
+      <button class="round" id="ovHome">🏠</button>
+      <button class="go" id="ovNext">つぎへ ▶</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========== ステージ ==========
+   S=スタート G=ゴール A=りんご #=き .=みち
+   slots=ならべられる カードの まいすう */
+const WORLDS = [
+  { name:'はじめのいっぽ', icon:'👣', cards:['R'], stages:[
+    { map:['S.G'],   slots:2 },
+    { map:['S..G'],  slots:3 },
+    { map:['S...G'], slots:4 },
+  ]},
+  { name:'まがりみち', icon:'↪️', cards:['L','U','D','R'], stages:[
+    { map:['S..','##.','##G'], slots:5 },
+    { map:['##G','##.','S..'], slots:5 },
+    { map:['G#S','.#.','...'], slots:7 },
+  ]},
+  { name:'りんご ひろい', icon:'🍎', cards:['L','U','D','R'], stages:[
+    { map:['A..','S.G'],             slots:5 },
+    { map:['S.#','#.A','#G#'],       slots:6 },
+    { map:['A.S','#.#','G..'],       slots:7 },
+  ]},
+  { name:'くりかえし', icon:'🔁', cards:['L','U','D','R'], rep:true, stages:[
+    { map:['S.....G'],                      slots:2 },
+    { map:['S...','###.','###.','###G'],    slots:2 },
+    { map:['S..A','###.','G...'],           slots:3 },
+  ]},
+];
+
+const DIRS  = { R:[1,0], L:[-1,0], U:[0,-1], D:[0,1] };
+const ROT   = { R:0, D:90, L:180, U:-90 };
+const CHARAS = ['🤖','🐱','🐧','🦖','🐶'];
+const KEY = 'osanpo-programming-v1';
+const ARROW = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9.5h10V4.5l8 7.5-8 7.5v-5H3z" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+
+let save = { cleared:{}, chara:'🤖', sound:true };
+try { Object.assign(save, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch(e){}
+function persist(){ try { localStorage.setItem(KEY, JSON.stringify(save)); } catch(e){} }
+
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ========== おと ========== */
+let ac;
+function tone(f, d=.12, type='sine', vol=.18, when=0){
+  if (!save.sound) return;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const t = ac.currentTime + when, o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + d);
+    o.connect(g).connect(ac.destination); o.start(t); o.stop(t + d + .02);
+  } catch(e){}
+}
+const sfx = {
+  pi:   () => tone(1200, .08, 'square', .08),
+  step: (i) => tone(500 + (i % 5) * 70, .1, 'triangle', .2),
+  bump: () => { tone(160, .25, 'sawtooth', .12); tone(120, .3, 'sawtooth', .1, .12); },
+  apple:() => { tone(880, .1); tone(1320, .15, 'sine', .18, .08); },
+  win:  () => [523,659,784,1047].forEach((f,i) => tone(f, .25, 'triangle', .2, i * .12)),
+  no:   () => tone(220, .15, 'square', .06),
+};
+function speak(text){
+  if (!save.sound) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'ja-JP'; u.rate = .95; u.pitch = 1.4;
+    speechSynthesis.speak(u);
+  } catch(e){}
+}
+
+/* ========== ホーム ========== */
+function renderHome(){
+  $('#charas').innerHTML = '';
+  CHARAS.forEach(c => {
+    const b = document.createElement('button');
+    b.textContent = c; if (c === save.chara) b.classList.add('sel');
+    b.onclick = () => { save.chara = c; persist(); sfx.pi(); renderHome(); };
+    $('#charas').appendChild(b);
+  });
+  $('#worlds').innerHTML = '';
+  WORLDS.forEach((w, wi) => {
+    const box = document.createElement('div'); box.className = 'world';
+    box.innerHTML = `<div class="wname"><span class="ico">${w.icon}</span>${wi+1}. ${w.name}</div><div class="stages"></div>`;
+    w.stages.forEach((_, si) => {
+      const b = document.createElement('button');
+      b.textContent = si + 1;
+      if (save.cleared[`${wi}-${si}`]) b.classList.add('done');
+      b.onclick = () => { sfx.pi(); openStage(wi, si); };
+      box.querySelector('.stages').appendChild(b);
+    });
+    $('#worlds').appendChild(box);
+  });
+}
+function show(id){ document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id)); }
+
+/* ========== ゲーム ========== */
+let W, S, stage, grid, start, goal, apples, prog = [], running = false, pos, taken, cell, charaEl;
+let sel = -1, bad = -1;   // えらんでいる カード / まちがえた カード
+
+function openStage(wi, si){
+  W = wi; S = si; stage = WORLDS[wi].stages[si];
+  grid = stage.map.map(r => r.split('')); apples = [];
+  grid.forEach((row, y) => row.forEach((c, x) => {
+    if (c === 'S') start = {x, y};
+    if (c === 'G') goal = {x, y};
+    if (c === 'A') apples.push({x, y});
+  }));
+  prog = []; sel = -1; bad = -1;
+  $('#label').textContent = `${wi+1}-${si+1}`;
+  show('game');
+  buildBoard(); renderProg(); renderPalette(); resetChara(true);
+}
+
+function buildBoard(){
+  const rows = grid.length, cols = grid[0].length;
+  const maxW = Math.min(window.innerWidth - 32, 900);
+  const maxH = Math.max(150, window.innerHeight - 400);
+  cell = Math.max(40, Math.floor(Math.min(maxW / cols, maxH / rows, 120)));
+  const board = $('#board');
+  board.style.width = cols * cell + 'px'; board.style.height = rows * cell + 'px';
+  board.style.setProperty('--cell', cell + 'px');
+  board.innerHTML = '';
+  grid.forEach((row, y) => row.forEach((c, x) => {
+    const d = document.createElement('div');
+    d.className = 'cell ' + (c === '#' ? 'wall' : 'path') + (c === 'S' ? ' start' : '');
+    d.style.left = x * cell + 'px'; d.style.top = y * cell + 'px';
+    d.textContent = { '#':'🌳', G:'🏁', A:'🍎' }[c] || '';
+    if (c === 'A') d.id = `a${x}-${y}`;
+    board.appendChild(d);
+  }));
+  charaEl = document.createElement('div'); charaEl.className = 'chara';
+  charaEl.innerHTML = '<span></span>'; charaEl.firstChild.textContent = save.chara;
+  board.appendChild(charaEl);
+}
+
+function place(instant){
+  if (instant) charaEl.style.transition = 'none';
+  charaEl.style.transform = `translate(${pos.x * cell}px, ${pos.y * cell}px)`;
+  if (instant) { charaEl.offsetHeight; charaEl.style.transition = ''; }
+}
+function face(d){ if (d === 'L') charaEl.firstChild.style.transform = 'scaleX(-1)'; if (d === 'R') charaEl.firstChild.style.transform = ''; }
+function resetChara(instant){
+  pos = { ...start }; taken = new Set(); face('R');
+  apples.forEach(a => { const el = $(`#a${a.x}-${a.y}`); if (el) el.classList.remove('got'); });
+  charaEl.querySelectorAll('.bubble').forEach(b => b.remove());
+  charaEl.classList.remove('hop');
+  place(instant);
+}
+function bubble(text){
+  const b = document.createElement('div'); b.className = 'bubble'; b.textContent = text;
+  charaEl.appendChild(b);
+}
+
+function cardEl(d, tag='div'){
+  const el = document.createElement(tag);
+  el.className = 'card'; el.style.background = `var(--${d})`;
+  el.innerHTML = ARROW; el.firstChild.style.transform = `rotate(${ROT[d]}deg)`;
+  return el;
+}
+
+function renderProg(){
+  const box = $('#prog'); box.innerHTML = '';
+  for (let i = 0; i < stage.slots; i++){
+    const c = prog[i];
+    if (c){
+      const el = cardEl(c.d, 'button');
+      if (c.n > 1) el.insertAdjacentHTML('beforeend', `<span class="rep">×${c.n}</span>`);
+      if (i === sel) el.classList.add('sel');
+      if (i === bad) el.classList.add('bad');
+      // タップで「えらぶ」→ 下のカードを押すと いれかわる
+      el.onclick = () => { sel = (sel === i) ? -1 : i; bad = -1; sfx.pi(); renderProg(); };
+      box.appendChild(el);
+    } else {
+      const s = document.createElement('div'); s.className = 'slot';
+      s.innerHTML = `<span class="num">${i+1}</span>`;
+      s.onclick = () => { if (sel >= 0){ sel = -1; renderProg(); } };
+      box.appendChild(s);
+    }
+  }
+}
+
+function renderPalette(){
+  const w = WORLDS[W], box = $('#palette'); box.innerHTML = '';
+  w.cards.forEach(d => {
+    const b = cardEl(d, 'button');
+    b.onclick = () => {
+      bad = -1;
+      if (sel >= 0){ prog[sel] = { d, n:prog[sel].n }; sel = -1; sfx.pi(); renderProg(); return; }
+      if (prog.length >= stage.slots){ sfx.no(); flash($('#prog'), 'full'); return; }
+      prog.push({ d, n:1 }); sfx.pi(); renderProg();
+    };
+    box.appendChild(b);
+  });
+  if (w.rep){
+    box.insertAdjacentHTML('beforeend', '<span class="sep"></span>');
+    [2, 3].forEach(n => {
+      const b = document.createElement('button'); b.className = 'repbtn'; b.textContent = `×${n}`;
+      b.onclick = () => {
+        const last = sel >= 0 ? prog[sel] : prog[prog.length - 1];
+        if (!last){ sfx.no(); return; }
+        last.n = last.n === n ? 1 : n; sel = -1; bad = -1; sfx.pi(); renderProg();
+      };
+      box.appendChild(b);
+    });
+  }
+}
+function flash(el, cls){ el.classList.remove(cls); el.offsetWidth; el.classList.add(cls); setTimeout(() => el.classList.remove(cls), 500); }
+
+function markCard(i, cls){
+  $('#prog').querySelectorAll('.card').forEach((el, j) => el.classList.toggle(cls, j === i));
+}
+
+async function run(){
+  if (running) return;
+  if (!prog.length){ sfx.no(); speak('カードを ならべてね'); flash($('#prog'), 'full'); return; }
+  running = true; document.body.classList.add('running');
+  sel = -1; bad = -1; renderProg(); resetChara(true);
+  await sleep(300);
+  let steps = 0;
+  try {
+    for (let i = 0; i < prog.length; i++){
+      const c = prog[i]; markCard(i, 'now');
+      for (let t = 0; t < c.n; t++){
+        const [dx, dy] = DIRS[c.d], nx = pos.x + dx, ny = pos.y + dy;
+        face(c.d);
+        const blocked = ny < 0 || ny >= grid.length || nx < 0 || nx >= grid[0].length || grid[ny][nx] === '#';
+        if (blocked){ await fail(i, '💦', 'あれれ？ ぶつかっちゃった。ひかってる カードを かえてね'); return; }
+        pos = { x:nx, y:ny }; place(); sfx.step(steps++);
+        await sleep(450);
+        if (grid[ny][nx] === 'A' && !taken.has(`${nx}-${ny}`)){
+          taken.add(`${nx}-${ny}`); $(`#a${nx}-${ny}`).classList.add('got'); sfx.apple();
+          await sleep(150);
+        }
+      }
+    }
+    markCard(-1, 'now');
+    const atGoal = pos.x === goal.x && pos.y === goal.y;
+    if (atGoal && taken.size === apples.length) return win();
+    if (atGoal) await fail(-1, '🍎？', 'りんごが まだ あるよ');
+    else        await fail(-1, '❓', 'あれれ？ ゴールに つかないよ');
+  } finally {
+    running = false; document.body.classList.remove('running');
+  }
+}
+
+async function fail(i, mark, words){
+  sfx.bump(); speak(words); bubble(mark);
+  charaEl.classList.add('shake');
+  if (i >= 0) markCard(i, 'bad');
+  await sleep(1500);
+  charaEl.classList.remove('shake');
+  resetChara(false);
+  // ぶつかった カードを えらんだ じょうたいに → 下の やじるしを おすだけで なおせる
+  if (i >= 0){ sel = i; bad = i; }
+  markCard(-1, 'now'); renderProg();
+  await sleep(400);
+}
+
+function win(){
+  save.cleared[`${W}-${S}`] = true; persist();
+  charaEl.classList.add('hop'); sfx.win(); speak('やったね！');
+  confetti();
+  setTimeout(() => { $('#clearChara').textContent = save.chara; $('#overlay').classList.add('on'); }, 900);
+}
+function nextStage(){
+  $('#overlay').classList.remove('on');
+  if (S + 1 < WORLDS[W].stages.length) openStage(W, S + 1);
+  else if (W + 1 < WORLDS.length) openStage(W + 1, 0);
+  else { renderHome(); show('home'); speak('ぜんぶ クリア！ すごいね'); }
+}
+function confetti(){
+  const colors = ['#ff8a3d','#3d8bff','#2bb673','#a05cf0','#f2b200','#ff5a7a'];
+  for (let i = 0; i < 50; i++){
+    const c = document.createElement('div'); c.className = 'confetti';
+    c.style.left = Math.random() * 100 + 'vw';
+    c.style.background = colors[i % colors.length];
+    c.style.animationDuration = 1.6 + Math.random() * 1.4 + 's';
+    c.style.animationDelay = Math.random() * .4 + 's';
+    document.body.appendChild(c); setTimeout(() => c.remove(), 3600);
+  }
+}
+
+/* ========== ヒント ==========
+   こたえの みちを うすい キャラが ゆっくり あるいて、
+   とおった ところに カードと おなじ いろの やじるしを のこす */
+function solve(){
+  const H = grid.length, WD = grid[0].length, full = (1 << apples.length) - 1;
+  const idx = new Map(apples.map((a, i) => [`${a.x}-${a.y}`, i]));
+  const k0 = `${start.x},${start.y},0`, prev = new Map([[k0, null]]), q = [[start.x, start.y, 0]];
+  while (q.length){
+    const [x, y, m] = q.shift();
+    if (x === goal.x && y === goal.y && m === full){
+      const dirs = []; let k = `${x},${y},${m}`;
+      while (prev.get(k)){ const [pk, d] = prev.get(k); dirs.unshift(d); k = pk; }
+      return dirs;
+    }
+    for (const d of ['R','D','L','U']){
+      const nx = x + DIRS[d][0], ny = y + DIRS[d][1];
+      if (ny < 0 || ny >= H || nx < 0 || nx >= WD || grid[ny][nx] === '#') continue;
+      const i = idx.get(`${nx}-${ny}`), nm = i === undefined ? m : m | (1 << i);
+      const nk = `${nx},${ny},${nm}`;
+      if (!prev.has(nk)){ prev.set(nk, [`${x},${y},${m}`, d]); q.push([nx, ny, nm]); }
+    }
+  }
+  return null;
+}
+
+async function hint(){
+  if (running) return;
+  const dirs = solve(); if (!dirs) return;
+  running = true; document.body.classList.add('running');
+  sel = -1; bad = -1; renderProg(); resetChara(true);
+  const board = $('#board');
+  board.querySelectorAll('.foot').forEach(f => f.remove());
+  const g = document.createElement('div'); g.className = 'chara ghost';
+  g.innerHTML = '<span></span>'; g.firstChild.textContent = save.chara;
+  board.appendChild(g);
+  let p = { ...start };
+  const put = (instant) => {
+    if (instant) g.style.transition = 'none';
+    g.style.transform = `translate(${p.x * cell}px, ${p.y * cell}px)`;
+    if (instant){ g.offsetHeight; g.style.transition = ''; }
+  };
+  put(true);
+  charaEl.style.opacity = '.25';   // スタートの やじるしが みえるように
+  speak('いっしょに みてみよう');
+  await sleep(900);
+  for (let i = 0; i < dirs.length; i++){
+    const d = dirs[i];
+    const f = document.createElement('div'); f.className = 'foot';
+    f.style.left = p.x * cell + 'px'; f.style.top = p.y * cell + 'px';
+    f.style.color = `var(--${d})`;
+    f.innerHTML = ARROW; f.firstChild.style.transform = `rotate(${ROT[d]}deg)`;
+    board.appendChild(f);
+    if (d === 'L') g.firstChild.style.transform = 'scaleX(-1)';
+    if (d === 'R') g.firstChild.style.transform = '';
+    p = { x:p.x + DIRS[d][0], y:p.y + DIRS[d][1] }; put();
+    tone(700 + i * 40, .12, 'sine', .12);
+    await sleep(950);
+  }
+  await sleep(500);
+  g.remove(); charaEl.style.opacity = '';
+  running = false; document.body.classList.remove('running');
+  // やじるしは しばらく のこして から きえる
+  setTimeout(() => board.querySelectorAll('.foot').forEach(f => {
+    f.classList.add('out'); setTimeout(() => f.remove(), 800);
+  }), 4000);
+}
+
+/* ========== ボタン ========== */
+$('#hintBtn').onclick = hint;
+$('#goBtn').onclick = run;
+// ⬅️ = えらんでいる カードを けす（えらんでいなければ さいごの 1まい）
+$('#undoBtn').onclick = () => {
+  if (sel >= 0) prog.splice(sel, 1); else prog.pop();
+  sel = -1; bad = -1; sfx.pi(); renderProg();
+};
+$('#clearBtn').onclick = () => { prog = []; sel = -1; bad = -1; sfx.pi(); renderProg(); };
+$('#homeBtn').onclick = () => { if (running) return; renderHome(); show('home'); };
+$('#ovHome').onclick = () => { $('#overlay').classList.remove('on'); renderHome(); show('home'); };
+$('#ovNext').onclick = () => { sfx.pi(); nextStage(); };
+function soundIcon(){ $('#soundBtn').textContent = save.sound ? '🔊' : '🔇'; }
+$('#soundBtn').onclick = () => { save.sound = !save.sound; persist(); soundIcon(); sfx.pi(); };
+window.addEventListener('resize', () => {
+  if ($('#game').classList.contains('on') && !running){ buildBoard(); resetChara(true); }
+});
+
+soundIcon(); renderHome();
+</script>
+</body>
+</html>
